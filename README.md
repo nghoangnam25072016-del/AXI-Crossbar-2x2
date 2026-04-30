@@ -28,4 +28,4 @@ from 2 masters → 1 slave, improve to 2 masters → 2 slaves
 - Fail count     = 0
 - SCOREBOARD TEST PASS
 
-  ![AXI_crossbar_2x2_full](sims/randomized scoreboard for AXI crossbar verificationl.png)
+  ![AXI_crossbar_2x2_full](sims/randomized_scoreboard_for_AXI_crossbar_verification.png)
