@@ -1,0 +1,138 @@
+`timescale 1ns/1ps
+
+module axi_crossbar_tb;
+
+  logic clk, rst_n;
+
+  logic [31:0] m0_awaddr, m0_wdata, m0_araddr, m0_rdata;
+  logic m0_awvalid, m0_awready, m0_wvalid, m0_wready;
+  logic [1:0] m0_bresp, m0_rresp;
+  logic m0_bvalid, m0_bready, m0_arvalid, m0_arready, m0_rvalid, m0_rready;
+
+  logic [31:0] m1_awaddr, m1_wdata, m1_araddr, m1_rdata;
+  logic m1_awvalid, m1_awready, m1_wvalid, m1_wready;
+  logic [1:0] m1_bresp, m1_rresp;
+  logic m1_bvalid, m1_bready, m1_arvalid, m1_arready, m1_rvalid, m1_rready;
+
+  logic [31:0] s0_awaddr, s0_wdata, s0_araddr, s0_rdata;
+  logic s0_awvalid, s0_awready, s0_wvalid, s0_wready;
+  logic [1:0] s0_bresp, s0_rresp;
+  logic s0_bvalid, s0_bready, s0_arvalid, s0_arready, s0_rvalid, s0_rready;
+
+  logic [31:0] s1_awaddr, s1_wdata, s1_araddr, s1_rdata;
+  logic s1_awvalid, s1_awready, s1_wvalid, s1_wready;
+  logic [1:0] s1_bresp, s1_rresp;
+  logic s1_bvalid, s1_bready, s1_arvalid, s1_arready, s1_rvalid, s1_rready;
+
+  axi_crossbar_2x2 dut (.*);
+
+  always #5 clk = ~clk;
+
+  initial begin
+    clk = 0;
+    rst_n = 0;
+
+    m0_awaddr=0; m0_awvalid=0; m0_wdata=0; m0_wvalid=0; m0_bready=1;
+    m0_araddr=0; m0_arvalid=0; m0_rready=1;
+
+    m1_awaddr=0; m1_awvalid=0; m1_wdata=0; m1_wvalid=0; m1_bready=1;
+    m1_araddr=0; m1_arvalid=0; m1_rready=1;
+
+    s0_awready=1; s0_wready=1; s0_bresp=0; s0_bvalid=0;
+    s0_arready=1; s0_rdata=0; s0_rresp=0; s0_rvalid=0;
+
+    s1_awready=1; s1_wready=1; s1_bresp=0; s1_bvalid=0;
+    s1_arready=1; s1_rdata=0; s1_rresp=0; s1_rvalid=0;
+
+    repeat (5) @(posedge clk);
+    rst_n = 1;
+    repeat (2) @(posedge clk);
+
+    // WRITE: M0 -> S0, M1 -> S1
+    m0_awaddr=32'h0000_1000; m0_wdata=32'hAAAA_0000; m0_awvalid=1; m0_wvalid=1;
+    m1_awaddr=32'h0001_2000; m1_wdata=32'hBBBB_0000; m1_awvalid=1; m1_wvalid=1;
+
+    repeat (5) @(posedge clk);
+    m0_awvalid=0; m0_wvalid=0; m1_awvalid=0; m1_wvalid=0;
+
+    repeat (5) @(posedge clk);
+
+    // READ: M0 -> S0, M1 -> S1
+    m0_araddr=32'h0000_5000; m0_arvalid=1;
+    m1_araddr=32'h0001_6000; m1_arvalid=1;
+
+    repeat (5) @(posedge clk);
+    m0_arvalid=0; m1_arvalid=0;
+
+    repeat (20) @(posedge clk);
+
+    $display("SMOKE TEST DONE");
+    $finish;
+  end
+
+  // S0 B response
+  always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) s0_bvalid <= 0;
+    else if (s0_awvalid && s0_awready && s0_wvalid && s0_wready) s0_bvalid <= 1;
+    else if (s0_bvalid && s0_bready) s0_bvalid <= 0;
+  end
+
+  // S1 B response
+  always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) s1_bvalid <= 0;
+    else if (s1_awvalid && s1_awready && s1_wvalid && s1_wready) s1_bvalid <= 1;
+    else if (s1_bvalid && s1_bready) s1_bvalid <= 0;
+  end
+
+  // S0 R response
+  always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      s0_rvalid <= 0;
+      s0_rdata  <= 0;
+    end else if (s0_arvalid && s0_arready) begin
+      s0_rvalid <= 1;
+      s0_rdata  <= s0_araddr + 32'h100;
+    end else if (s0_rvalid && s0_rready) begin
+      s0_rvalid <= 0;
+    end
+  end
+
+  // S1 R response
+  always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      s1_rvalid <= 0;
+      s1_rdata  <= 0;
+    end else if (s1_arvalid && s1_arready) begin
+      s1_rvalid <= 1;
+      s1_rdata  <= s1_araddr + 32'h200;
+    end else if (s1_rvalid && s1_rready) begin
+      s1_rvalid <= 0;
+    end
+  end
+
+  always @(posedge clk) begin
+    if (s0_awvalid && s0_awready && s0_wvalid && s0_wready)
+      $display("S0 WRITE addr=%h data=%h", s0_awaddr, s0_wdata);
+
+    if (s1_awvalid && s1_awready && s1_wvalid && s1_wready)
+      $display("S1 WRITE addr=%h data=%h", s1_awaddr, s1_wdata);
+
+    if (m0_bvalid && m0_bready)
+      $display("M0 B PASS");
+
+    if (m1_bvalid && m1_bready)
+      $display("M1 B PASS");
+
+    if (m0_rvalid && m0_rready)
+      $display("M0 READ data=%h", m0_rdata);
+
+    if (m1_rvalid && m1_rready)
+      $display("M1 READ data=%h", m1_rdata);
+  end
+
+  initial begin
+    $dumpfile("axi_crossbar_smoke.vcd");
+    $dumpvars(0, axi_crossbar_tb);
+  end
+
+endmodule
