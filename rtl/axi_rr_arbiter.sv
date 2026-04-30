@@ -39,6 +39,24 @@ module axi_rr_arbiter (
             end
         endcase
     end
+// Slave 0
+axi_rr_arbiter u_s0_arb (
+    .clk(clk),
+    .rst_n(rst_n),
+    .req0(req_s0_m0),
+    .req1(req_s0_m1),
+    .grant0(grant_s0_m0),
+    .grant1(grant_s0_m1)
+);
 
+// Slave 1
+    axi_rr_arbiter u_s1_arb (
+    .clk(clk),
+    .rst_n(rst_n),
+    .req0(req_s1_m0),
+    .req1(req_s1_m1),
+    .grant0(grant_s1_m0),
+    .grant1(grant_s1_m1)
+);
 endmodule
 
