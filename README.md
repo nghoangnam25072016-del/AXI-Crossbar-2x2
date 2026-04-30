@@ -10,3 +10,6 @@ from 2 masters → 1 slave, improve to 2 masters → 2 slaves
 #### M1 → S1
 ![AXI_crossbar_2x2_only_W](sims/AXI_crossbar_2x2_only_W.png)
 
+
+## Waveform complete AXI-Crossbar-2x2- W, R, B
+![AXI_crossbar_2x2_full](sims/AXI_crossbar_2x2_full.png)
