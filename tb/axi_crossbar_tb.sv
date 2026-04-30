@@ -1,6 +1,10 @@
 `timescale 1ns/1ps
 
 module axi_crossbar_tb;
+    int pass_count;
+int fail_count;
+int write_count;
+int read_count;
 
     logic clk;
     logic rst_n;
@@ -458,21 +462,149 @@ module axi_crossbar_tb;
         end
     end
 
+
+    // helper function decode slave
+function automatic bit is_s0(input logic [31:0] addr);
+    return (addr[31:16] == 16'h0000);
+endfunction
+
+function automatic bit is_s1(input logic [31:0] addr);
+    return (addr[31:16] == 16'h0001);
+endfunction
+
+
+// Add scoreboard monitor cho WRITE routing
+    always @(posedge clk) begin
+    if (s0_awvalid && s0_awready && s0_wvalid && s0_wready) begin
+        write_count++;
+
+        if (!is_s0(s0_awaddr)) begin
+            fail_count++;
+            $display("WRITE FAIL: S0 received wrong addr=%h", s0_awaddr);
+        end
+        else begin
+            pass_count++;
+            $display("WRITE PASS: S0 addr=%h data=%h", s0_awaddr, s0_wdata);
+        end
+    end
+
+    if (s1_awvalid && s1_awready && s1_wvalid && s1_wready) begin
+        write_count++;
+
+        if (!is_s1(s1_awaddr)) begin
+            fail_count++;
+            $display("WRITE FAIL: S1 received wrong addr=%h", s1_awaddr);
+        end
+        else begin
+            pass_count++;
+            $display("WRITE PASS: S1 addr=%h data=%h", s1_awaddr, s1_wdata);
+        end
+    end
+end
+
+
+    // Add scoreboard monitor cho READ data
+
+    always @(posedge clk) begin
+    if (m0_rvalid && m0_rready) begin
+        read_count++;
+
+        if ((m0_rdata[31:16] == 16'h0000 && m0_rdata[15:0] >= 16'h0100) ||
+            (m0_rdata[31:16] == 16'h0001 && m0_rdata[15:0] >= 16'h0200)) begin
+            pass_count++;
+            $display("READ PASS: M0 data=%h", m0_rdata);
+        end
+        else begin
+            fail_count++;
+            $display("READ FAIL: M0 data=%h", m0_rdata);
+        end
+    end
+
+    if (m1_rvalid && m1_rready) begin
+        read_count++;
+
+        if ((m1_rdata[31:16] == 16'h0000 && m1_rdata[15:0] >= 16'h0100) ||
+            (m1_rdata[31:16] == 16'h0001 && m1_rdata[15:0] >= 16'h0200)) begin
+            pass_count++;
+            $display("READ PASS: M1 data=%h", m1_rdata);
+        end
+        else begin
+            fail_count++;
+            $display("READ FAIL: M1 data=%h", m1_rdata);
+        end
+    end
+end
+
+    // Random traffic task
+task automatic random_write_read();
+    logic [31:0] addr0;
+    logic [31:0] addr1;
+
+    begin
+        addr0 = ($urandom_range(0,1)) ? 32'h0000_1000 : 32'h0001_1000;
+        addr1 = ($urandom_range(0,1)) ? 32'h0000_2000 : 32'h0001_2000;
+
+        m0_awaddr  <= addr0;
+        m0_wdata   <= 32'hAAAA_0000 + $urandom_range(0,255);
+        m0_awvalid <= 1'b1;
+        m0_wvalid  <= 1'b1;
+
+        m1_awaddr  <= addr1;
+        m1_wdata   <= 32'hBBBB_0000 + $urandom_range(0,255);
+        m1_awvalid <= 1'b1;
+        m1_wvalid  <= 1'b1;
+
+        m0_araddr  <= addr0;
+        m0_arvalid <= 1'b1;
+
+        m1_araddr  <= addr1;
+        m1_arvalid <= 1'b1;
+
+        repeat ($urandom_range(2,5)) @(posedge clk);
+
+        m0_awvalid <= 1'b0;
+        m0_wvalid  <= 1'b0;
+        m1_awvalid <= 1'b0;
+        m1_wvalid  <= 1'b0;
+
+        m0_arvalid <= 1'b0;
+        m1_arvalid <= 1'b0;
+
+        repeat ($urandom_range(2,6)) @(posedge clk);
+    end
+endtask
+
+
+    
     initial begin
+        pass_count  = 0;
+fail_count  = 0;
+write_count = 0;
+read_count  = 0;
         $dumpfile("axi_crossbar_full.vcd");
         $dumpvars(0, axi_crossbar_tb);
+        
+// Run random test
+repeat (20) begin
+    random_write_read();
+end
+        
     end
 
     final begin
-        $display("====================================");
-        $display("AXI CROSSBAR FULL TEST RESULT");
-        $display("S0 writes  = %0d", s0_write_count);
-        $display("S1 writes  = %0d", s1_write_count);
-        $display("M0 B count = %0d", m0_b_count);
-        $display("M1 B count = %0d", m1_b_count);
-        $display("M0 R count = %0d", m0_r_count);
-        $display("M1 R count = %0d", m1_r_count);
-        $display("Errors     = %0d", error_count);
+      $display("====================================");
+    $display("AXI CROSSBAR SCOREBOARD RESULT");
+    $display("Writes checked = %0d", write_count);
+    $display("Reads checked  = %0d", read_count);
+    $display("Pass count     = %0d", pass_count);
+    $display("Fail count     = %0d", fail_count);
+
+    if (fail_count == 0 && pass_count > 0)
+        $display("SCOREBOARD TEST PASS");
+    else
+        $display("SCOREBOARD TEST FAIL");
+
+    $display("====================================");
 
         if (s0_write_count > 0 &&
             s1_write_count > 0 &&
@@ -489,5 +621,9 @@ module axi_crossbar_tb;
 
         $display("====================================");
     end
+
+    final begin
+   $display("PASS=%0d FAIL=%0d", pass_count, fail_count);
+end
 
 endmodule
