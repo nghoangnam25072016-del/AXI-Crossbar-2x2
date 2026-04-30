@@ -18,3 +18,13 @@ from 2 masters → 1 slave, improve to 2 masters → 2 slaves
   - AW / W / B
   - AR / R
 ![AXI_crossbar_2x2_full](sims/AXI_crossbar_2x2_full.png)
+
+
+## Add randomized scoreboard for AXI crossbar verification
+### Features 
+- Writes checked = 39
+- Reads checked  = 22
+- Pass count     = 61
+- Fail count     = 0
+- SCOREBOARD TEST PASS
+![randomized scoreboard for AXI crossbar verification](sims/randomized scoreboard for AXI crossbar verificationl.png)
